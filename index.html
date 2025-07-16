@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espectro de Audio</title>
+  <style>
+    #welcome-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(10, 12, 24, 0.98);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.7s cubic-bezier(.4,2,.6,1), filter 0.7s cubic-bezier(.4,2,.6,1);
+    }
+    #welcome-overlay.hide {
+      opacity: 0;
+      filter: blur(18px);
+      pointer-events: none;
+    }
+    .welcome-card {
+      background: rgba(24,24,32,0.92);
+      border: 2.5px solid #a18fff;
+      border-radius: 18px;
+      box-shadow: 0 0 32px #6a5af9, 0 0 8px #a18fff;
+      padding: 2.8rem 2.5rem 2.2rem 2.5rem;
+      min-width: 340px;
+      max-width: 400px;
+      color: #fff;
+      font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 1001;
+      backdrop-filter: blur(4px);
+      opacity: 0.98;
+      animation: welcome-glow 2.2s infinite alternate;
+    }
+    .welcome-title {
+      font-size: 2.1rem;
+      font-weight: bold;
+      letter-spacing: 0.18em;
+      margin-bottom: 1.7rem;
+      color: #a18fff;
+      text-shadow: 0 0 18px #6a5af9, 0 0 2px #fff;
+      text-align: center;
+    }
+    #welcome-accept {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #fff;
+      background: linear-gradient(90deg, #6a5af9 0%, #a18fff 100%);
+      border: none;
+      border-radius: 8px;
+      padding: 0.7em 2.2em;
+      box-shadow: 0 0 12px #6a5af9, 0 0 4px #a18fff;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s, filter 0.3s;
+      margin-top: 0.7em;
+      outline: none;
+      text-shadow: 0 0 8px #a18fff;
+    }
+    #welcome-accept:hover {
+      background: linear-gradient(90deg, #a18fff 0%, #6a5af9 100%);
+      filter: brightness(1.2) blur(0.5px);
+      transform: scale(1.08);
+    }
+    @keyframes welcome-glow {
+      0% {
+        box-shadow: 0 0 32px #6a5af9, 0 0 8px #a18fff;
+      }
+      100% {
+        box-shadow: 0 0 48px #a18fff, 0 0 24px #6a5af9;
+      }
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #181818;
+    }
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #visualizer {
+      position: fixed;
+      left: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 22vh;
+      display: block;
+      z-index: 2;
+      pointer-events: none;
+    }
+    #playBtn {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      z-index: 2;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      background: #1e90ff;
+      color: #fff;
+      cursor: pointer;
+      opacity: 0.85;
+      transition: background 0.2s, opacity 0.2s;
+    }
+    #playBtn:hover {
+      background: #0a5ec2;
+      opacity: 1;
+    }
+    #audio { display: none; }
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: transparent;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.7s cubic-bezier(.4,2,.6,1), visibility 0.7s cubic-bezier(.4,2,.6,1), transform 0.7s cubic-bezier(.4,2,.6,1);
+      opacity: 1;
+      visibility: visible;
+      overflow: hidden;
+      position: fixed;
+      transform: scale(1);
+    }
+    #overlay::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      background: radial-gradient(circle, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0.7) 100%, transparent 100%);
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(1);
+      z-index: 9;
+      transition: width 0.7s cubic-bezier(.4,2,.6,1), height 0.7s cubic-bezier(.4,2,.6,1), opacity 0.7s cubic-bezier(.4,2,.6,1), transform 0.7s cubic-bezier(.4,2,.6,1);
+      opacity: 1;
+      pointer-events: none;
+    }
+    #overlay.expand::before {
+      width: 300vw;
+      height: 300vw;
+      opacity: 0.7;
+      transform: translate(-50%, -50%) scale(2.5);
+    }
+    #overlay.expand {
+      background: transparent !important;
+      opacity: 1;
+      transform: none;
+    }
+    #overlay.hide {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .open-btn {
+      background: none;
+      color: #fff;
+      font-size: 3rem;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      padding: 0;
+      border-radius: 0;
+      box-shadow: none;
+      cursor: pointer;
+      user-select: none;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      text-align: center;
+      position: relative;
+      transition: transform 0.2s;
+      outline: none;
+    }
+    .open-btn:hover {
+      transform: scale(1.08);
+    }
+    /* Glitch text effect */
+    .glitch-text {
+      position: relative;
+      display: inline-block;
+      color: #fff;
+      font-weight: bold;
+      text-shadow:
+        2px 0 #f0f,
+        -2px 0 #0ff;
+      animation: glitch-skew 1.2s infinite linear alternate-reverse;
+    }
+    .glitch-text::before,
+    .glitch-text::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 0; top: 0;
+      width: 100%;
+      overflow: hidden;
+      color: #fff;
+      background: transparent;
+      pointer-events: none;
+    }
+    .glitch-text::before {
+      text-shadow: 2px 0 #f0f, 0 2px #0ff;
+      clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%);
+      animation: glitch-top 1.1s infinite linear alternate-reverse;
+    }
+    .glitch-text::after {
+      text-shadow: -2px 0 #0ff, 0 -2px #f0f;
+      clip-path: polygon(0 60%, 100% 60%, 100% 100%, 0 100%);
+      animation: glitch-bottom 1.3s infinite linear alternate-reverse;
+    }
+    @keyframes glitch-skew {
+      0% { transform: skew(0deg); }
+      20% { transform: skew(2deg, -2deg); }
+      40% { transform: skew(-2deg, 2deg); }
+      60% { transform: skew(1deg, -1deg); }
+      80% { transform: skew(-1deg, 1deg); }
+      100% { transform: skew(0deg); }
+    }
+    @keyframes glitch-top {
+      0% { transform: translate(0,0); }
+      20% { transform: translate(-2px,-2px); }
+      40% { transform: translate(-4px,2px); }
+      60% { transform: translate(2px,-1px); }
+      80% { transform: translate(1px,2px); }
+      100% { transform: translate(0,0); }
+    }
+    @keyframes glitch-bottom {
+      0% { transform: translate(0,0); }
+      20% { transform: translate(2px,2px); }
+      40% { transform: translate(4px,-2px); }
+      60% { transform: translate(-2px,1px); }
+      80% { transform: translate(-1px,-2px); }
+      100% { transform: translate(0,0); }
+    }
+    /* Glitch lines overlay */
+    .glitch-lines {
+      position: absolute;
+      left: 0; top: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 2;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0 8px,
+        rgba(255,255,255,0.04) 8px 10px,
+        transparent 10px 20px
+      );
+      mix-blend-mode: lighten;
+      animation: glitch-lines-move 1.5s infinite linear alternate;
+    }
+    @keyframes glitch-lines-move {
+      0% { background-position-y: 0; }
+      100% { background-position-y: 20px; }
+    }
+    #bg-blur {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1; /* Por encima del video, por debajo del canvas y overlay */
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(12px);
+      pointer-events: none;
+    }
+    #typewriter-container {
+      position: absolute;
+      top: 18vh;
+      left: 0;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+    #typewriter-text, #typewriter-text2 {
+      color: #fff;
+      font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+      font-size: 1.25rem;
+      background: none;
+      letter-spacing: 0.02em;
+      white-space: pre;
+      text-align: center;
+      text-shadow: 0 0 2px #fff, 0 0 8px #0ff2, 0 0 4px #f0f1;
+      position: relative;
+      min-height: 2.5em;
+    }
+    /* Glitch leve para el typewriter */
+    .typewriter-glitch {
+      position: relative;
+    }
+    .typewriter-glitch::before,
+    .typewriter-glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 0; top: 0;
+      width: 100%;
+      pointer-events: none;
+      opacity: 0.18;
+      color: #fff;
+      background: none;
+      text-shadow: 1px 0 #0ff, -1px 0 #f0f;
+      z-index: 1;
+      animation: typewriter-glitch-move 1.2s infinite linear alternate;
+    }
+    .typewriter-glitch::after {
+      opacity: 0.12;
+      text-shadow: -1px 0 #0ff, 1px 0 #f0f;
+      animation: typewriter-glitch-move2 1.3s infinite linear alternate;
+    }
+    @keyframes typewriter-glitch-move {
+      0% { transform: translate(0,0); }
+      20% { transform: translate(-1px,1px); }
+      40% { transform: translate(1px,-1px); }
+      60% { transform: translate(-1px,0); }
+      80% { transform: translate(1px,1px); }
+      100% { transform: translate(0,0); }
+    }
+    @keyframes typewriter-glitch-move2 {
+      0% { transform: translate(0,0); }
+      25% { transform: translate(1px,0); }
+      50% { transform: translate(-1px,1px); }
+      75% { transform: translate(0,-1px); }
+      100% { transform: translate(0,0); }
+    }
+    .typewriter-cursor {
+      display: inline-block;
+      width: 1ch;
+      animation: blink-cursor 0.8s steps(1) infinite;
+      color: #fff;
+      opacity: 0.8;
+    }
+    @keyframes blink-cursor {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 0.1; }
+    }
+    .overlay-bg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0,0,0,0.85);
+      z-index: 1;
+      pointer-events: none;
+    }
+    #press-here {
+      margin-top: 2.5rem;
+      font-size: 2.2rem;
+      font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+      color: #fff;
+      text-transform: uppercase;
+      font-weight: bold;
+      letter-spacing: 0.15em;
+      text-align: center;
+      position: relative;
+      z-index: 10;
+      cursor: pointer;
+      user-select: none;
+      opacity: 0;
+      pointer-events: none;
+      filter: blur(1.5px) brightness(1.2);
+      text-shadow: 0 0 16px #fff, 0 0 32px #0ff8;
+      transition: opacity 0.7s cubic-bezier(.4,2,.6,1), filter 0.7s cubic-bezier(.4,2,.6,1);
+    }
+    #press-here.visible {
+      opacity: 0.92;
+      pointer-events: auto;
+      filter: blur(0.5px) brightness(1.1);
+    }
+    .crazy-glitch {
+      animation: crazy-glitch-anim 0.35s infinite steps(2);
+    }
+    .crazy-glitch::before, .crazy-glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      left: 0; top: 0;
+      width: 100%;
+      color: #fff;
+      pointer-events: none;
+      opacity: 0.32;
+      z-index: 11;
+    }
+    .crazy-glitch::before {
+      text-shadow: 1px 0 #0ff, -1px 0 #fff;
+      animation: crazy-glitch-before 0.33s infinite linear alternate;
+    }
+    .crazy-glitch::after {
+      text-shadow: -1px 0 #f0f, 1px 0 #fff;
+      animation: crazy-glitch-after 0.29s infinite linear alternate;
+    }
+    @keyframes crazy-glitch-anim {
+      0% { transform: skew(0deg,0deg) scale(1) translate(0,0); }
+      20% { transform: skew(2deg,-2deg) scale(1.01) translate(-1px,1px); }
+      40% { transform: skew(-2deg,2deg) scale(0.99) translate(1px,-1px); }
+      60% { transform: skew(1deg,-1deg) scale(1.02) translate(-0.5px,0.5px); }
+      80% { transform: skew(-1deg,1deg) scale(0.98) translate(0.5px,-0.5px); }
+      100% { transform: skew(0deg,0deg) scale(1) translate(0,0); }
+    }
+    @keyframes crazy-glitch-before {
+      0% { clip-path: inset(0 0 60% 0); left: 0; }
+      50% { clip-path: inset(40% 0 0 0); left: 1px; }
+      100% { clip-path: inset(0 0 60% 0); left: 0; }
+    }
+    @keyframes crazy-glitch-after {
+      0% { clip-path: inset(60% 0 0 0); left: 0; }
+      50% { clip-path: inset(0 0 40% 0); left: -1px; }
+      100% { clip-path: inset(60% 0 0 0); left: 0; }
+    }
+    .main-flex {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      height: 100vh;
+      width: 100vw;
+      position: relative;
+      z-index: 10;
+    }
+    .status-card {
+      margin-top: 0.5rem;
+      margin-left: 0.5rem;
+      background: rgba(24,24,32,0.82);
+      border: 2.5px solid #a18fff;
+      border-radius: 18px;
+      box-shadow: 0 0 32px #6a5af9, 0 0 8px #a18fff;
+      padding: 2.2rem 2.1rem 1.5rem 2.1rem;
+      min-width: 340px;
+      max-width: 400px;
+      color: #fff;
+      font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 12;
+      backdrop-filter: blur(4px);
+      opacity: 0.98;
+    }
+    .status-title {
+      font-size: 1.35rem;
+      font-weight: bold;
+      letter-spacing: 0.18em;
+      margin-bottom: 0.7rem;
+      color: #a18fff;
+      text-shadow: 0 0 12px #6a5af9, 0 0 2px #fff;
+      text-align: center;
+    }
+    .status-level {
+      font-size: 2.7rem;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 0 18px #a18fff, 0 0 32px #6a5af9;
+      margin-bottom: 0.2rem;
+      text-align: center;
+    }
+    .status-level span {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #a18fff;
+      margin-left: 0.5em;
+      letter-spacing: 0.08em;
+    }
+    .status-job, .status-title2 {
+      font-size: 1.05rem;
+      color: #a18fff;
+      margin-bottom: 0.2rem;
+      text-align: center;
+      text-shadow: 0 0 8px #6a5af9;
+    }
+    .status-bars {
+      width: 100%;
+      margin: 1.1rem 0 0.7rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .bar-group {
+      display: flex;
+      align-items: center;
+      gap: 0.7em;
+      width: 100%;
+    }
+    .bar-label {
+      font-size: 1.05rem;
+      color: #a18fff;
+      min-width: 54px;
+      text-align: right;
+    }
+    .bar-bar {
+      flex: 1;
+      height: 14px;
+      background: #23234a;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 8px #6a5af9;
+      position: relative;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6a5af9 0%, #a18fff 100%);
+      border-radius: 8px;
+      box-shadow: 0 0 8px #a18fff;
+      transition: width 0.5s;
+    }
+    .bar-value {
+      font-size: 1.05rem;
+      color: #fff;
+      min-width: 48px;
+      text-align: left;
+      text-shadow: 0 0 4px #6a5af9;
+    }
+    .status-stats {
+      width: 100%;
+      margin-top: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      gap: 1.2em;
+    }
+    .stat {
+      font-size: 1.08rem;
+      color: #fff;
+      text-shadow: 0 0 8px #6a5af9;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: rgba(24,24,32,0.18);
+      border-radius: 6px;
+      padding: 0.18em 0.7em;
+      box-shadow: 0 0 4px #a18fff;
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+    }
+    .stat-plus {
+      color: #a18fff;
+      font-size: 0.98em;
+      font-weight: 500;
+      margin-left: 0.3em;
+      text-shadow: 0 0 4px #6a5af9;
+    }
+    #sidebar-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 320px;
+      height: 100vh;
+      background: rgba(24, 24, 24, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 2px 0 16px 0 rgba(0,0,0,0.18);
+      border-right: 4px solid transparent;
+      /* Borde animado */
+      position: relative;
+      margin: 0;
+      padding: 0;
+    }
+    #sidebar-nav::before,
+    #sidebar-nav::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 10px;
+      height: 100%;
+      background: linear-gradient(180deg, #6a5af9, #a18fff, #6a5af9 90%);
+      background-size: 100% 300%;
+      background-position: 0% 0%;
+      border-radius: 3px;
+      z-index: 11;
+      animation: border-move 3.5s linear infinite;
+      pointer-events: none;
+    }
+    #sidebar-nav::before {
+      left: 0;
+    }
+    #sidebar-nav::after {
+      right: 0;
+    }
+    @keyframes border-move {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 0% 100%; }
+    }
+    #sidebar-nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: calc(100% - 140px);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+    .sidebar-gif-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 200px;
+      margin-bottom: 0.5rem;
+    }
+    .sidebar-gif-circle {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: rgba(24,24,24,0.85);
+      box-shadow: 0 2px 16px 0 rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 4px solid #a18fff;
+    }
+    #sidebar-nav .nav-title {
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: #fff;
+      margin: 1.2rem 0 0.5rem 0;
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 16px #a18fff, 0 0 32px #6a5af9, 0 2px 8px #000a;
+      user-select: none;
+      text-align: center;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      animation: glow-anim 2.2s infinite alternate;
+    }
+    .glow-title {
+      background: linear-gradient(90deg, #a18fff 0%, #6a5af9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    @keyframes glow-anim {
+      0% {
+        text-shadow: 0 0 16px #a18fff, 0 0 32px #6a5af9, 0 2px 8px #000a;
+      }
+      100% {
+        text-shadow: 0 0 32px #6a5af9, 0 0 48px #a18fff, 0 2px 16px #000a;
+      }
+    }
+    #sidebar-nav .nav-section {
+      margin: 0.5rem 0 0 0.7rem;
+    }
+    #sidebar-nav .nav-section a {
+      color: #a18fff;
+      text-decoration: none;
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      opacity: 0.95;
+      background: linear-gradient(90deg, #6a5af9 0%, #a18fff 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      transition: 
+        background 0.3s cubic-bezier(.4,2,.6,1),
+        filter 0.3s cubic-bezier(.4,2,.6,1),
+        transform 0.18s cubic-bezier(.4,2,.6,1),
+        opacity 0.2s;
+      filter: brightness(1) blur(0px);
+      border-radius: 0;
+      padding: 1.1em 0;
+      outline: none;
+      box-shadow: none;
+      position: relative;
+      margin-bottom: 1.5em;
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+    #sidebar-nav .nav-section a::after {
+      content: '';
+      position: absolute;
+      left: 0; bottom: 0;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, #6a5af9 0%, #a18fff 100%);
+      opacity: 0;
+      transition: opacity 0.3s cubic-bezier(.4,2,.6,1);
+      border-radius: 2px;
+    }
+    #sidebar-nav .nav-section a:hover, #sidebar-nav .nav-section a:focus {
+      opacity: 1;
+      filter: brightness(1.15) blur(0.5px);
+      transform: scale(1.07);
+      text-decoration: none;
+    }
+    #sidebar-nav .nav-section a:hover::after, #sidebar-nav .nav-section a:focus::after {
+      opacity: 1;
+    }
+    @media (max-width: 600px) {
+      #sidebar-nav {
+        width: 140px;
+      }
+      #sidebar-nav .nav-title {
+        font-size: 1.1rem;
+        margin-left: 0.7rem;
+      }
+      #sidebar-nav .nav-section {
+        margin-left: 0.7rem;
+      }
+    }
+    body {
+      padding-left: 120px;
+    }
+    @media (max-width: 600px) {
+      body {
+        padding-left: 140px;
+      }
+    }
+    .visualizer-status-card {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(24,24,32,0.92);
+      border: 2.5px solid #a18fff;
+      border-radius: 18px;
+      box-shadow: 0 0 32px #6a5af9, 0 0 8px #a18fff;
+      padding: 1.5rem;
+      min-width: 300px;
+      max-width: 800px;
+      color: #fff;
+      font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 15; /* Asegura que esté por encima del video */
+      backdrop-filter: blur(4px);
+      opacity: 0.98;
+    }
+  </style>
+</head>
+<body>
+  <div id="welcome-overlay">
+    <div class="welcome-card">
+      <div class="welcome-title">Welcome</div>
+      <button id="welcome-accept">Accept</button>
+    </div>
+  </div>
+  <div class="main-flex" id="main-content" style="display:none;">
+    <nav id="sidebar-nav">
+      <div class="sidebar-gif-container">
+        <div class="sidebar-gif-circle">
+          <img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZzE5Y242ZGhtNTU5NzVuamZzY2s4YmM3djV0MDY0N2lnaGUwZjg1diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/arNwVy65l0H3JA3umA/giphy.gif" alt="gif" style="width:100%;height:100%;object-fit:cover;">
+        </div>
+      </div>
+      <ul>
+        <li class="nav-title glow-title">Danibanmode</li>
+      </ul>
+    </nav>
+    <section class="status-card">
+      <div class="status-title">BERU</div>
+      <div class="status-level">100 <span>LEVEL</span></div>
+      <div class="status-job">JOB: <span>Shadow Commander</span></div>
+      <div class="status-title2">TITLE: <span>The King of Wings or Former Ant King
+</span></div>
+      <div class="status-bars">
+        <div class="bar-group">
+          <div class="bar-label">HP</div>
+          <div class="bar-bar"><div class="bar-fill" style="width:90%"></div></div>
+          <div class="bar-value">38500</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-label">MP</div>
+          <div class="bar-bar"><div class="bar-fill" style="width:70%"></div></div>
+          <div class="bar-value">5200</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-label">Fatigue</div>
+          <div class="bar-bar"><div class="bar-fill" style="width:0%"></div></div>
+          <div class="bar-value">0</div>
+        </div>
+      </div>
+      <div class="status-stats">
+        <div class="stat-row">
+          <div class="stat">STR: <span>255</span> <span class="stat-plus">(+65)</span></div>
+          <div class="stat">VIT: <span>240</span> <span class="stat-plus">(+55)</span></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat">AGI: <span>270</span> <span class="stat-plus">(+80)</span></div>
+          <div class="stat">INT: <span>180</span> <span class="stat-plus">(+40)</span></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat">PER: <span>230</span> <span class="stat-plus">(+60)</span></div>
+          <div class="stat">Available Points: <span>0</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+  <!-- Tarjeta visualizer fija abajo derecha -->
+  <!-- Tarjeta visualizer abajo y centrada -->
+  <section class="visualizer-status-card">
+    <div class="visualizer-title"></div>
+    <div class="visualizer-bars">
+      <canvas id="card-visualizer" width="360" height="120"></canvas>
+    </div>
+  </section>
+  <video id="bgvideo" src="https://raw.githubusercontent.com/danielbanmode/Xatspace2/main/17mb.mp4" autoplay loop muted playsinline style="
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    z-index: 0;
+    filter: grayscale(0.9);
+    pointer-events: none;
+    opacity: 0.60;
+  "></video>
+  <canvas id="visualizer"></canvas>
+  <audio id="audio" src="https://github.com/danielbanmode/Xatspace2/blob/main/123321.mp3" controls autoplay></audio>
+  <style>
+    .main-flex {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      height: 100vh;
+      width: 100vw;
+      position: relative;
+      z-index: 10;
+    }
+    .status-card {
+      margin-top: 0.5rem;
+      margin-left: 0.5rem;
+      background: rgba(24,24,32,0.82);
+      border: 2.5px solid #a18fff;
+      border-radius: 18px;
+      box-shadow: 0 0 32px #6a5af9, 0 0 8px #a18fff;
+      padding: 2.2rem 2.1rem 1.5rem 2.1rem;
+      min-width: 340px;
+      max-width: 400px;
+      color: #fff;
+      font-family: 'Fira Mono', 'Consolas', 'Menlo', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 12;
+      backdrop-filter: blur(4px);
+      opacity: 0.98;
+    }
+    .status-title {
+      font-size: 1.35rem;
+      font-weight: bold;
+      letter-spacing: 0.18em;
+      margin-bottom: 0.7rem;
+      color: #a18fff;
+      text-shadow: 0 0 12px #6a5af9, 0 0 2px #fff;
+      text-align: center;
+    }
+    .status-level {
+      font-size: 2.7rem;
+      font-weight: bold;
+      color: #fff;
+      text-shadow: 0 0 18px #a18fff, 0 0 32px #6a5af9;
+      margin-bottom: 0.2rem;
+      text-align: center;
+    }
+    .status-level span {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #a18fff;
+      margin-left: 0.5em;
+      letter-spacing: 0.08em;
+    }
+    .status-job, .status-title2 {
+      font-size: 1.05rem;
+      color: #a18fff;
+      margin-bottom: 0.2rem;
+      text-align: center;
+      text-shadow: 0 0 8px #6a5af9;
+    }
+    .status-bars {
+      width: 100%;
+      margin: 1.1rem 0 0.7rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .bar-group {
+      display: flex;
+      align-items: center;
+      gap: 0.7em;
+      width: 100%;
+    }
+    .bar-label {
+      font-size: 1.05rem;
+      color: #a18fff;
+      min-width: 54px;
+      text-align: right;
+    }
+    .bar-bar {
+      flex: 1;
+      height: 14px;
+      background: #23234a;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 8px #6a5af9;
+      position: relative;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6a5af9 0%, #a18fff 100%);
+      border-radius: 8px;
+      box-shadow: 0 0 8px #a18fff;
+      transition: width 0.5s;
+    }
+    .bar-value {
+      font-size: 1.05rem;
+      color: #fff;
+      min-width: 48px;
+      text-align: left;
+      text-shadow: 0 0 4px #6a5af9;
+    }
+    .status-stats {
+      width: 100%;
+      margin-top: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      gap: 1.2em;
+    }
+    .stat {
+      font-size: 1.08rem;
+      color: #fff;
+      text-shadow: 0 0 8px #6a5af9;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: rgba(24,24,32,0.18);
+      border-radius: 6px;
+      padding: 0.18em 0.7em;
+      box-shadow: 0 0 4px #a18fff;
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+    }
+    .stat-plus {
+      color: #a18fff;
+      font-size: 0.98em;
+      font-weight: 500;
+      margin-left: 0.3em;
+      text-shadow: 0 0 4px #6a5af9;
+    }
+    #sidebar-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 320px;
+      height: 100vh;
+      background: rgba(24, 24, 24, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 2px 0 16px 0 rgba(0,0,0,0.18);
+      border-right: 4px solid transparent;
+      /* Borde animado */
+      position: relative;
+      margin: 0;
+      padding: 0;
+    }
+    #sidebar-nav::before,
+    #sidebar-nav::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 10px;
+      height: 100%;
+      background: linear-gradient(180deg, #6a5af9, #a18fff, #6a5af9 90%);
+      background-size: 100% 300%;
+      background-position: 0% 0%;
+      border-radius: 3px;
+      z-index: 11;
+      animation: border-move 3.5s linear infinite;
+      pointer-events: none;
+    }
+    #sidebar-nav::before {
+      left: 0;
+    }
+    #sidebar-nav::after {
+      right: 0;
+    }
+    @keyframes border-move {
+      0% { background-position: 0% 0%; }
+      100% { background-position: 0% 100%; }
+    }
+    #sidebar-nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: calc(100% - 140px);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+    .sidebar-gif-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 200px;
+      margin-bottom: 0.5rem;
+    }
+    .sidebar-gif-circle {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: rgba(24,24,24,0.85);
+      box-shadow: 0 2px 16px 0 rgba(0,0,0,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 4px solid #a18fff;
+    }
+    #sidebar-nav .nav-title {
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: #fff;
+      margin: 1.2rem 0 0.5rem 0;
+      letter-spacing: 0.12em;
+      text-shadow: 0 0 16px #a18fff, 0 0 32px #6a5af9, 0 2px 8px #000a;
+      user-select: none;
+      text-align: center;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      animation: glow-anim 2.2s infinite alternate;
+    }
+    .glow-title {
+      background: linear-gradient(90deg, #a18fff 0%, #6a5af9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    @keyframes glow-anim {
+      0% {
+        text-shadow: 0 0 16px #a18fff, 0 0 32px #6a5af9, 0 2px 8px #000a;
+      }
+      100% {
+        text-shadow: 0 0 32px #6a5af9, 0 0 48px #a18fff, 0 2px 16px #000a;
+      }
+    }
+    #sidebar-nav .nav-section {
+      margin: 0.5rem 0 0 0.7rem;
+    }
+    #sidebar-nav .nav-section a {
+      color: #a18fff;
+      text-decoration: none;
+      font-size: 2.1rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      opacity: 0.95;
+      background: linear-gradient(90deg, #6a5af9 0%, #a18fff 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      transition: 
+        background 0.3s cubic-bezier(.4,2,.6,1),
+        filter 0.3s cubic-bezier(.4,2,.6,1),
+        transform 0.18s cubic-bezier(.4,2,.6,1),
+        opacity 0.2s;
+      filter: brightness(1) blur(0px);
+      border-radius: 0;
+      padding: 1.1em 0;
+      outline: none;
+      box-shadow: none;
+      position: relative;
+      margin-bottom: 1.5em;
+      display: block;
+      width: 100%;
+      text-align: center;
+    }
+    #sidebar-nav .nav-section a::after {
+      content: '';
+      position: absolute;
+      left: 0; bottom: 0;
+      width: 100%; height: 2px;
+      background: linear-gradient(90deg, #6a5af9 0%, #a18fff 100%);
+      opacity: 0;
+      transition: opacity 0.3s cubic-bezier(.4,2,.6,1);
+      border-radius: 2px;
+    }
+    #sidebar-nav .nav-section a:hover, #sidebar-nav .nav-section a:focus {
+      opacity: 1;
+      filter: brightness(1.15) blur(0.5px);
+      transform: scale(1.07);
+      text-decoration: none;
+    }
+    #sidebar-nav .nav-section a:hover::after, #sidebar-nav .nav-section a:focus::after {
+      opacity: 1;
+    }
+    @media (max-width: 600px) {
+      #sidebar-nav {
+        width: 140px;
+      }
+      #sidebar-nav .nav-title {
+        font-size: 1.1rem;
+        margin-left: 0.7rem;
+      }
+      #sidebar-nav .nav-section {
+        margin-left: 0.7rem;
+      }
+    }
+    body {
+      padding-left: 120px;
+    }
+    @media (max-width: 600px) {
+      body {
+        padding-left: 140px;
+      }
+    }
+  </style>
+  <script>
+    // Pantalla de bienvenida
+    document.addEventListener('DOMContentLoaded', function() {
+      const welcomeOverlay = document.getElementById('welcome-overlay');
+      const welcomeAccept = document.getElementById('welcome-accept');
+      const mainContent = document.getElementById('main-content');
+      welcomeAccept.addEventListener('click', function() {
+        welcomeOverlay.classList.add('hide');
+        // Iniciar audio y contexto de audio al aceptar
+        if (!audioInitialized) {
+          setupAudioContext();
+          audioInitialized = true;
+        }
+        if (audio.paused) {
+          audio.play();
+        }
+        setTimeout(function() {
+          welcomeOverlay.style.display = 'none';
+          mainContent.style.display = '';
+        }, 700);
+      });
+    });
+    const audio = document.getElementById('audio');
+    const canvas = document.getElementById('visualizer');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let audioCtx, analyser, source, dataArray, bufferLength, audioInitialized = false;
+    function setupAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioCtx.createMediaElementSource(audio);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 1024;
+        bufferLength = analyser.frequencyBinCount;
+        dataArray = new Uint8Array(bufferLength);
+        source.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }
+    }
+
+    function drawGlitchWave() {
+      requestAnimationFrame(drawGlitchWave);
+      if (!analyser) return;
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width;
+      const h = canvas.height;
+      const midY = h * 0.45;
+      const points = 256;
+      const step = Math.floor(dataArray.length / points);
+      // Glitch: offsets y saltos aleatorios
+      let glitchOffsets = Array(points).fill(0).map(() => (Math.random() > 0.93 ? (Math.random()-0.5)*16 : 0));
+      // Línea principal
+      ctx.save();
+      ctx.beginPath();
+      for (let i = 0; i < points; i++) {
+        let v = dataArray[i * step] / 128.0;
+        let y = midY + (v - 1) * (h * 0.38) + glitchOffsets[i];
+        let x = (i / (points - 1)) * w;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur = 16 + Math.random() * 16;
+      ctx.lineWidth = 3.2 + Math.random() * 1.5;
+      ctx.strokeStyle = '#fff';
+      ctx.globalAlpha = 0.98;
+      ctx.stroke();
+      ctx.restore();
+      // Reflejo
+      ctx.save();
+      ctx.globalAlpha = 0.22 + Math.random() * 0.08;
+      ctx.setTransform(1, 0, 0, -1, 0, h * 1.05);
+      ctx.beginPath();
+      for (let i = 0; i < points; i++) {
+        let v = dataArray[i * step] / 128.0;
+        let y = midY + (v - 1) * (h * 0.38) + glitchOffsets[i];
+        let x = (i / (points - 1)) * w;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur = 24;
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.restore();
+      // Glitch: saltos horizontales aleatorios
+      for (let g = 0; g < 3; g++) {
+        if (Math.random() > 0.7) {
+          let y = midY + (Math.random()-0.5)*h*0.5;
+          let x1 = Math.random()*w*0.7;
+          let x2 = x1 + 40 + Math.random()*60;
+          ctx.save();
+          ctx.globalAlpha = 0.18 + Math.random()*0.12;
+          ctx.beginPath();
+          ctx.moveTo(x1, y);
+          ctx.lineTo(x2, y + (Math.random()-0.5)*8);
+          ctx.lineWidth = 2.5 + Math.random()*2;
+          ctx.strokeStyle = '#fff';
+          ctx.shadowColor = '#fff';
+          ctx.shadowBlur = 12 + Math.random()*12;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    drawGlitchWave();
+
+    // Typewriter effect con glitch leve y cursor y texto diacrítico
+    const typewriterText = document.getElementById('typewriter-text');
+    const typewriterText2 = document.getElementById('typewriter-text2');
+    
+    let twIndex1 = 0, twIndex2 = 0;
+    let twDeleting = false;
+    let twDelay = 0;
+    let typingLine = 1;
+    function updateTypewriter() {
+      typewriterText.textContent = phrase1.slice(0, twIndex1);
+      typewriterText.setAttribute('data-text', phrase1.slice(0, twIndex1));
+      typewriterText2.textContent = phrase2.slice(0, twIndex2);
+      typewriterText2.setAttribute('data-text', phrase2.slice(0, twIndex2));
+      // Cursor
+      document.querySelectorAll('.typewriter-cursor').forEach(e => e.remove());
+      if (!twDeleting) {
+        if (typingLine === 1) {
+          typewriterText.insertAdjacentHTML('beforeend', '<span class="typewriter-cursor">_</span>');
+        } else {
+          typewriterText2.insertAdjacentHTML('beforeend', '<span class="typewriter-cursor">_</span>');
+        }
+      } else {
+        if (typingLine === 2 && twIndex2 > 0) {
+          typewriterText2.insertAdjacentHTML('beforeend', '<span class="typewriter-cursor">_</span>');
+        } else if (typingLine === 1 && twIndex1 > 0) {
+          typewriterText.insertAdjacentHTML('beforeend', '<span class="typewriter-cursor">_</span>');
+        }
+      }
+    }
+    // Mostrar el botón solo después de terminar la frase
+    const pressHereBtn = document.getElementById('press-here');
+    let pressHereEnabled = false;
+    function showPressHere() {
+      pressHereBtn.classList.add('visible');
+      pressHereEnabled = true;
+    }
+    // Modifica el typewriterLoop para mostrar el botón al terminar
+    function typewriterLoop() {
+      if (!twDeleting) {
+        if (typingLine === 1 && twIndex1 < phrase1.length) {
+          twIndex1++;
+          twDelay = 16 + Math.random() * 30;
+        } else if (typingLine === 1 && twIndex1 === phrase1.length) {
+          typingLine = 2;
+          twDelay = 200;
+        } else if (typingLine === 2 && twIndex2 < phrase2.length) {
+          twIndex2++;
+          twDelay = 16 + Math.random() * 30;
+        } else if (typingLine === 2 && twIndex2 === phrase2.length) {
+          if (!pressHereEnabled) showPressHere();
+          twDeleting = true;
+          twDelay = 900;
+        }
+      } else {
+        if (typingLine === 2 && twIndex2 > 0) {
+          twIndex2--;
+          twDelay = 8 + Math.random() * 16;
+        } else if (typingLine === 2 && twIndex2 === 0) {
+          typingLine = 1;
+          twDelay = 100;
+        } else if (typingLine === 1 && twIndex1 > 0) {
+          twIndex1--;
+          twDelay = 8 + Math.random() * 16;
+        } else if (typingLine === 1 && twIndex1 === 0) {
+          twDeleting = false;
+          twDelay = 450;
+        }
+      }
+      updateTypewriter();
+      setTimeout(typewriterLoop, twDelay);
+    }
+    typewriterLoop();
+
+    // Overlay para abrir el contenido
+    const overlay = document.getElementById('overlay');
+    overlay.addEventListener('click', () => {
+      // Iniciar audio y contexto de audio
+      if (!audioInitialized) {
+        setupAudioContext();
+        audioInitialized = true;
+      }
+      if (audio.paused) {
+        audio.play();
+      }
+      // Animación de expansión
+      overlay.classList.add('expand');
+      setTimeout(() => {
+        overlay.classList.add('hide');
+        particlesActive = false;
+        overlay.classList.remove('expand');
+      }, 700);
+    });
+
+    // Acción del botón para expandir overlay y reproducir audio
+    pressHereBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!audioInitialized) {
+        setupAudioContext();
+        audioInitialized = true;
+      }
+      if (audio.paused) {
+        audio.play();
+      }
+      overlay.classList.add('expand');
+      setTimeout(() => {
+        overlay.classList.add('hide');
+        particlesActive = false;
+        overlay.classList.remove('expand');
+      }, 700);
+    });
+
+    // El overlay solo responde al botón, no al click general
+    overlay.onclick = null;
+  </script>
+</body>
+</html>
