@@ -830,7 +830,10 @@
     opacity: 0.60;
   "></video>
   <canvas id="visualizer"></canvas>
-  <audio id="audio" src="https://raw.githubusercontent.com/danielbanmode/Xatspace2/main/123321.mp3" controls autoplay></audio>
+ <audio id="audio" preload="auto" controls autoplay>
+    <source src="https://raw.githubusercontent.com/danielbanmode/Xatspace2/main/123321.mp3" type="audio/mpeg">
+    Tu navegador no soporta el elemento de audio.
+  </audio>
   <style>
     .main-flex {
       display: flex;
