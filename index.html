@@ -1142,40 +1142,14 @@
       }
     }
   </style>
+
   <script>
-    // Pantalla de bienvenida
-    document.addEventListener('DOMContentLoaded', function() {
-      const welcomeOverlay = document.getElementById('welcome-overlay');
-      const welcomeAccept = document.getElementById('welcome-accept');
-      const mainContent = document.getElementById('main-content');
-      welcomeAccept.addEventListener('click', function() {
-        welcomeOverlay.classList.add('hide');
-        // Iniciar audio y contexto de audio al aceptar
-        if (!audioInitialized) {
-          setupAudioContext();
-          audioInitialized = true;
-        }
-        if (audio.paused) {
-          audio.play();
-        }
-        setTimeout(function() {
-          welcomeOverlay.style.display = 'none';
-          mainContent.style.display = '';
-        }, 700);
-      });
-    });
+    // Variables globales de audio y canvas
+    let audioCtx, analyser, source, dataArray, bufferLength, audioInitialized = false;
     const audio = document.getElementById('audio');
     const canvas = document.getElementById('visualizer');
     const ctx = canvas.getContext('2d');
 
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    let audioCtx, analyser, source, dataArray, bufferLength, audioInitialized = false;
     function setupAudioContext() {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1188,6 +1162,39 @@
         analyser.connect(audioCtx.destination);
       }
     }
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Pantalla de bienvenida y reproducción de audio
+    document.addEventListener('DOMContentLoaded', function() {
+      const welcomeOverlay = document.getElementById('welcome-overlay');
+      const welcomeAccept = document.getElementById('welcome-accept');
+      const mainContent = document.getElementById('main-content');
+      welcomeAccept.addEventListener('click', function() {
+        welcomeOverlay.classList.add('hide');
+        // Iniciar audio y contexto de audio al aceptar
+        if (!audioInitialized) {
+          setupAudioContext();
+          audioInitialized = true;
+        }
+        // Reanudar contexto si está suspendido (por políticas de navegador)
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        if (audio.paused) {
+          audio.play();
+        }
+        setTimeout(function() {
+          welcomeOverlay.style.display = 'none';
+          mainContent.style.display = '';
+        }, 700);
+      });
+    });
 
     function drawGlitchWave() {
       requestAnimationFrame(drawGlitchWave);
